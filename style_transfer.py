@@ -32,7 +32,7 @@ class TestOptions():
         self.parser.add_argument("--cpu", action="store_true", help="if true, only use cpu")
         self.parser.add_argument("--backbone", type=str, default='dualstylegan', help="dualstylegan | toonify")
         self.parser.add_argument("--padding", type=int, nargs=4, default=[200,200,200,200], help="left, right, top, bottom paddings to the face center")
-        self.parser.add_argument("--batch_size", type=int, default=4, help="batch size of frames when processing video")
+        self.parser.add_argument("--batch_size", type=int, default=1, help="batch size of frames when processing video")
         self.parser.add_argument("--parsing_map_path", type=str, default=None, help="path of the refined parsing map of the target video")
         
     def parse(self):
@@ -133,6 +133,7 @@ if __name__ == "__main__":
 
                 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
                 videoWriter = cv2.VideoWriter(cropname, fourcc, video_cap.get(5), (W, H))
+                # print('Video size: %d x %d' % (W, H))
                 videoWriter2 = cv2.VideoWriter(savename, fourcc, video_cap.get(5), (4*W, 4*H))
                 
                 # For each video, we detect and align the face in the first frame for pSp to obtain the style code. 
@@ -154,6 +155,7 @@ if __name__ == "__main__":
                 if scale <= 0.375:
                     frame = cv2.sepFilter2D(frame, -1, kernel_1d, kernel_1d)
                 frame = cv2.resize(frame, (w, h))[top:bottom, left:right]
+                # print('Rescale Video size: %d x %d' % (W, H))
 
             videoWriter.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
 
@@ -175,8 +177,17 @@ if __name__ == "__main__":
                     # d_s has no effect when backbone is toonify
                     y_tilde = vtoonify(inputs, s_w.repeat(inputs.size(0), 1, 1), d_s = args.style_degree)       
                     y_tilde = torch.clamp(y_tilde, -1, 1)
+                    # print('y_tilde', y_tilde.shape)
                 for k in range(y_tilde.size(0)):
                     videoWriter2.write(tensor2cv2(y_tilde[k].cpu()))
+                    save_frame_name = os.path.join(args.output_path, basename, 'result_%04d.jpg'%(i+1-x.size(0)+k))
+                    if not os.path.exists(os.path.join(args.output_path, basename)):
+                        os.mkdir(os.path.join(args.output_path, basename))
+                    save_image(y_tilde[k].cpu(), save_frame_name)
+                    # print('save image', save_frame_name)
+                    # save_image(y_tilde[k].cpu(), 'result_%04d.jpg'%(i+1-x.size(0)+k))
+                    # print('save image', 'result_%04d.jpg'%(i+1-x.size(0)+k))
+                    # save_image(x[k].cpu(), 'input_%04d.jpg'%(i+1-x.size(0)+k))
 
         videoWriter.release()
         videoWriter2.release()
